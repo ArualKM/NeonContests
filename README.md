@@ -36,6 +36,7 @@ Creates a new music contest.
   - **`public_channel`**: The channel where anonymous submissions will be posted for voting.
   - **`review_channel`**: The private channel where admins can see full submission details.
   - **`allowed_platforms`** `(Optional)`: A comma-separated list of platforms to accept (e.g., `suno,youtube`). If left blank, all platforms are allowed.
+  - - **`submission_limit`** `(Optional)`: The maximum number of tracks a single user can submit. **Defaults to 1**.
 
 #### `/contest edit`
 
