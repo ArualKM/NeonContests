@@ -6,18 +6,19 @@ def init_db():
     conn = sqlite3.connect('suno_contests.db')
     cursor = conn.cursor()
 
-    # Create contests table with a column for allowed platforms
+    # Add the max_submissions_per_user column with a default of 1
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS contests (
             contest_id TEXT PRIMARY KEY,
             public_channel_id INTEGER NOT NULL,
             review_channel_id INTEGER NOT NULL,
             allowed_platforms TEXT,
+            max_submissions_per_user INTEGER DEFAULT 1,
             is_open INTEGER DEFAULT 1
         )
     ''')
 
-    # Create submissions table with a column for the submission's platform
+    # No changes needed to the submissions table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS submissions (
             submission_id INTEGER PRIMARY KEY AUTOINCREMENT,
