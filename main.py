@@ -370,7 +370,7 @@ async def _contest_stats(  # Rename the function
             await ctx.respond(f"❌ Contest `{contest_id}` not found.", ephemeral=True)
             return
 
-        ... # Rest of the stats command implementation
+        ...
 
 @bot.command(name="contest_stats", description="View contest statistics")  # Register as a top-level command
 @is_contest_manager()  # Apply the permission check
@@ -412,11 +412,12 @@ async def contest_stats(
                 inline=False
             )
         
-        await ctx.respond(embed=embed, ephemeral=False)
+        try:
+            await ctx.respond(embed=embed, ephemeral=False)
         
-    except Exception as e:
-        logger.error(f"Error getting contest stats: {e}", exc_info=True)
-        await ctx.respond("❌ An error occurred while fetching statistics.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error getting contest stats: {e}", exc_info=True)
+            await ctx.respond("❌ An error occurred while fetching statistics.", ephemeral=True)
 
 # --- SUBMISSION COMMANDS ---
 @bot.command(name="submit", description="Submit your track to a contest")
