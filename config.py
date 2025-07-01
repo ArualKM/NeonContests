@@ -1,7 +1,10 @@
 # config.py - Configuration settings for the Discord Music Contest Bot
 import os
 from dataclasses import dataclass
+from dotenv import load_dotenv
 from typing import Optional
+
+load_dotenv()
 
 @dataclass
 class Config:
