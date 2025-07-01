@@ -104,7 +104,7 @@ async def on_ready():
 
 @bot.event
 async def on_application_command_error(ctx: discord.ApplicationContext, error: discord.DiscordException):
-    """Global error handler for application commands"""
+    """Global error handler for application commands."""
     if isinstance(error, commands.CheckFailure):
         await ctx.respond("❌ You don't have permission to use this command.", ephemeral=True)
     else:
@@ -138,6 +138,9 @@ async def create_contest(
     submission_limit: Option(int, "Max submissions per user (1-10)", min_value=1, max_value=10, required=False, default=1),
     description: Option(str, "Contest description", required=False, default=None)
 ):
+
+    await ctx.defer(ephemeral=True)
+
     """Create a new contest with validation"""
     
     # Validate inputs
@@ -196,7 +199,7 @@ async def create_contest(
             
             embed.set_footer(text=f"Created by {ctx.author}")
             
-            await ctx.respond(embed=embed, ephemeral=True)
+            await ctx.followup.send(embed=embed, ephemeral=True)
             
     except sqlite3.IntegrityError:
         await ctx.respond(
@@ -255,7 +258,13 @@ async def edit_contest(
                 await ctx.respond(f"❌ Contest `{contest_id}` not found.", ephemeral=True)
                 return
             
-            log_action(ctx.author.id, "edit_contest", f"Edited contest: {contest_id}")
+            log_action(ctx.author.id, "edit_contest", f"Edited contest: {contest_id}")            
+
+            # Fetch updated contest data
+            updated_contest = conn.execute(
+                "SELECT * FROM contests WHERE contest_id = ?",
+                (contest_id,)
+            ).fetchone()
             
             embed = discord.Embed(
                 title="✅ Contest Updated",
@@ -264,7 +273,20 @@ async def edit_contest(
                 timestamp=datetime.now()
             )
             
-            await ctx.respond(embed=embed, ephemeral=True)
+            # Display updated values
+            if updated_contest:
+                if public_channel:
+                    embed.add_field(name="Public Channel", value=f"<#{updated_contest['public_channel_id']}>", inline=True)
+                if review_channel:
+                    embed.add_field(name="Review Channel", value=f"<#{updated_contest['review_channel_id']}>", inline=True)
+                if submission_limit:
+                    embed.add_field(name="Submission Limit", value=updated_contest['max_submissions_per_user'], inline=True)
+                if status:
+                    embed.add_field(name="Status", value=updated_contest['status'], inline=True)
+                if description:
+                    embed.add_field(name="Description", value=updated_contest['description'], inline=False)
+
+            await ctx.followup.send(embed=embed, ephemeral=True)
             
     except Exception as e:
         logger.error(f"Error editing contest: {e}", exc_info=True)
@@ -335,7 +357,7 @@ async def delete_contest(
         await ctx.respond("❌ An error occurred while deleting the contest.", ephemeral=True)
 
 @contest.command(name="stats", description="View contest statistics")
-async def contest_stats(
+async def _contest_stats(  # Rename the function
     ctx: discord.ApplicationContext,
     contest_id: Option(str, "The ID of the contest")
 ):
@@ -347,6 +369,16 @@ async def contest_stats(
         if not stats:
             await ctx.respond(f"❌ Contest `{contest_id}` not found.", ephemeral=True)
             return
+
+        ... # Rest of the stats command implementation
+
+@bot.command(name="contest_stats", description="View contest statistics")  # Register as a top-level command
+@is_contest_manager()  # Apply the permission check
+async def contest_stats(
+    ctx: discord.ApplicationContext,
+    contest_id: Option(str, "The ID of the contest")
+):
+    await _contest_stats(ctx, contest_id) # Call the original function
         
         contest_info = stats['contest']
         
@@ -611,15 +643,19 @@ async def submit(
                     
             except Exception as e:
                 cursor.execute("ROLLBACK")
-                raise
+                logger.error(f"Database error during submission: {e}", exc_info=True)
+                await ctx.followup.send(
+                    "❌ A database error occurred. Please try again or contact an admin.",
+                    ephemeral=True
+                )
                 
     except Exception as e:
-        logger.error(f"Error in submit command: {e}", exc_info=True)
-        await ctx.followup.send(
-            "❌ An unexpected error occurred. Please try again or contact an admin.",
-            ephemeral=True
-        )
-
+        if not ctx.responded:  # Ensure a response if the initial deferral failed
+            await ctx.respond(
+                "❌ An unexpected error occurred. Please try again or contact an admin.",
+                ephemeral=True
+            )
+            logger.error(f"Error in submit command: {e}", exc_info=True)
 @submission_group.command(name="delete", description="Delete one of your submissions")
 async def delete_submission(
     ctx: discord.ApplicationContext,
