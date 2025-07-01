@@ -26,7 +26,7 @@ class AsyncPlatformHandler:
             timeout = aiohttp.ClientTimeout(total=Config.REQUEST_TIMEOUT)
             self._session = aiohttp.ClientSession(
                 timeout=timeout,
-                headers={'User-Agent': Config.USER_AGENT}
+                headers={'User-Agent': f"{Config.USER_AGENT} (bot)"} # More descriptive user agent
             )
         return self._session
     
@@ -71,6 +71,9 @@ class AsyncPlatformHandler:
                     logger.warning(f"HTTP {response.status} for {clean_url}")
                     return None
                 
+                if response.status == 403:
+                    logger.warning(f"HTTP 403 Forbidden for {clean_url}. Riffusion might be blocking requests")
+
                 # Check content length
                 content_length = response.headers.get('Content-Length')
                 if content_length and int(content_length) > Config.MAX_RESPONSE_SIZE:
@@ -93,6 +96,10 @@ class AsyncPlatformHandler:
             logger.error(f"Unexpected error fetching {clean_url}: {e}")
         
         return None
+
+    async def polite_fetch(self, url:str):
+        await asyncio.sleep(1) # Respectful Delay
+        return await self.fetch_with_limit(url)
     
     async def get_metadata(self, url: str) -> Optional[Dict[str, Any]]:
         """Extract metadata - to be implemented by subclasses"""
@@ -199,7 +206,7 @@ class RiffusionHandler(AsyncPlatformHandler):
         super().__init__("Riffusion", ["riffusion.com", "www.riffusion.com"])
     
     async def get_metadata(self, url: str) -> Optional[Dict[str, Any]]:
-        content = await self.fetch_with_limit(url)
+        content = await self.polite_fetch(url)
         if not content:
             return None
         
