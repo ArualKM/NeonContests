@@ -66,27 +66,28 @@ class AsyncPlatformHandler:
         try:
             session = await self.get_session()
             async with session.get(clean_url) as response:
-                # Check status
-                if response.status != 200:
-                    logger.warning(f"HTTP {response.status} for {clean_url}")
-                    return None
+                # Handle success case first
+                if response.status == 200:
+                    # Check content length
+                    content_length = response.headers.get('Content-Length')
+                    if content_length and int(content_length) > Config.MAX_RESPONSE_SIZE:
+                        logger.warning(f"Response too large: {content_length} bytes for {clean_url}")
+                        return None
+                    
+                    # Read with size limit
+                    content = await response.text(encoding='utf-8')
+                    if len(content) > Config.MAX_RESPONSE_SIZE:
+                        logger.warning(f"Content from {clean_url} exceeds size limit")
+                        return None
+                    
+                    return content
                 
+                # Handle error statuses
                 if response.status == 403:
-                    logger.warning(f"HTTP 403 Forbidden for {clean_url}. Riffusion might be blocking requests")
-
-                # Check content length
-                content_length = response.headers.get('Content-Length')
-                if content_length and int(content_length) > Config.MAX_RESPONSE_SIZE:
-                    logger.warning(f"Response too large: {content_length} bytes")
-                    return None
-                
-                # Read with size limit
-                content = await response.text(encoding='utf-8')
-                if len(content) > Config.MAX_RESPONSE_SIZE:
-                    logger.warning(f"Content exceeds size limit")
-                    return None
-                
-                return content
+                    logger.warning(f"HTTP 403 Forbidden for {clean_url}. Riffusion may be blocking requests.")
+                else:
+                    logger.warning(f"HTTP {response.status} for {clean_url}")
+                return None
                 
         except asyncio.TimeoutError:
             logger.error(f"Timeout fetching {clean_url}")
